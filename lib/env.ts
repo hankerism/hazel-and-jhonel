@@ -7,7 +7,25 @@ export const env = {
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   /** Which wedding this deployment serves. */
   weddingSlug: process.env.WEDDING_SLUG ?? "hazel-and-jhonel",
+  /** Public base URL of the deployed site (falls back to request origin). */
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+  /** SMTP — server-side only, never reaches the client bundle. */
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    secure: process.env.SMTP_SECURE,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    fromName: process.env.SMTP_FROM_NAME,
+    fromEmail: process.env.SMTP_FROM_EMAIL,
+    replyTo: process.env.SMTP_REPLY_TO,
+  },
 } as const;
+
+export function isSmtpConfigured(): boolean {
+  const { host, port, user, pass, fromEmail } = env.smtp;
+  return Boolean(host && port && user && pass && fromEmail);
+}
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(env.supabaseUrl && env.supabaseAnonKey);

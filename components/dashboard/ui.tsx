@@ -107,6 +107,49 @@ export function Select({
   );
 }
 
+/** Labeled toggle. Interactive — use within client components. */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className="flex w-fit cursor-pointer items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span
+        aria-hidden
+        className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-300 ${
+          checked ? "border-gold-deep bg-gold" : "border-line bg-white/70"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-[1.15rem] w-[1.15rem] rounded-full bg-ivory shadow transition-all duration-300 ${
+            checked ? "left-[1.35rem]" : "left-0.5"
+          }`}
+        />
+      </span>
+      <span className="text-sm">
+        {label}
+        {hint && <span className="block text-xs text-stone">{hint}</span>}
+      </span>
+    </button>
+  );
+}
+
 export function EmptyState({
   title,
   hint,

@@ -14,7 +14,8 @@ import { getWeddingContent } from "@/services/wedding-service";
 export const revalidate = 3600;
 
 export default async function Home() {
-  const { wedding, story, schedule, gallery, faqs } = await getWeddingContent();
+  const { wedding, story, schedule, gallery, faqs, rsvpConfig } =
+    await getWeddingContent();
   const monogram = `${wedding.brideName[0]} & ${wedding.groomName[0]}`;
 
   return (
@@ -27,7 +28,7 @@ export default async function Home() {
         <Schedule items={schedule} />
         <Gallery images={gallery} />
         <Faq faqs={faqs} />
-        <RsvpSection wedding={wedding} />
+        <RsvpSection wedding={wedding} rsvpConfig={rsvpConfig} />
       </main>
       <SiteFooter wedding={wedding} />
     </>

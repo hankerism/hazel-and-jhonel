@@ -1,14 +1,23 @@
 import { cache } from "react";
+import {
+  DEFAULT_RSVP_FORM_CONFIG,
+  RSVP_FIELD_DEFAULTS,
+} from "@/content/rsvp-form-defaults";
 import { seedContent } from "@/content/seed";
 import { env } from "@/lib/env";
 import { getSupabaseClient } from "@/lib/supabase/server";
-import type {
-  Faq,
-  GalleryImage,
-  ScheduleItem,
-  StoryMilestone,
-  Wedding,
-  WeddingContent,
+import {
+  LOCKED_RSVP_FIELDS,
+  RSVP_FIELD_KEYS,
+  type Faq,
+  type GalleryImage,
+  type MealOption,
+  type RsvpFieldKey,
+  type RsvpFormConfig,
+  type ScheduleItem,
+  type StoryMilestone,
+  type Wedding,
+  type WeddingContent,
 } from "@/types/wedding";
 
 /* Database row shapes (snake_case, as stored in Supabase). */
@@ -35,6 +44,25 @@ interface WeddingRow {
   /** Added by migration 00002 — optional until it has run. */
   music_url?: string;
   music_autoplay?: boolean;
+  /** Added by migration 00003 — optional until it has run. */
+  rsvp_max_guests?: number;
+  rsvp_allow_decline?: boolean;
+  rsvp_plus_one_conditional?: boolean;
+}
+
+interface RsvpFieldRow {
+  field_key: string;
+  visible: boolean;
+  required: boolean;
+  label: string;
+  placeholder: string | null;
+  help_text: string | null;
+}
+
+interface MealOptionRow {
+  id: string;
+  label: string;
+  sort_order: number;
 }
 
 interface StoryRow {
@@ -128,6 +156,52 @@ const mapFaq = (row: FaqRow): Faq => ({
   displayOrder: row.display_order,
 });
 
+/** Stored field rows + settings columns over the defaults. Locked identity
+ * fields stay visible+required no matter what reaches the database. */
+function buildRsvpConfig(
+  wedding: WeddingRow,
+  fieldRows: RsvpFieldRow[] | null,
+  mealRows: MealOptionRow[] | null,
+): RsvpFormConfig {
+  const byKey = new Map((fieldRows ?? []).map((r) => [r.field_key, r]));
+
+  const fields = Object.fromEntries(
+    RSVP_FIELD_KEYS.map((key) => {
+      const stored = byKey.get(key);
+      const base = RSVP_FIELD_DEFAULTS[key];
+      const locked = LOCKED_RSVP_FIELDS.includes(key);
+      return [
+        key,
+        stored
+          ? {
+              key,
+              visible: locked || stored.visible,
+              required: locked || stored.required,
+              label: stored.label || base.label,
+              placeholder: stored.placeholder,
+              helpText: stored.help_text,
+            }
+          : base,
+      ];
+    }),
+  ) as Record<RsvpFieldKey, (typeof RSVP_FIELD_DEFAULTS)[RsvpFieldKey]>;
+
+  const mealOptions: MealOption[] = mealRows
+    ? mealRows.map((r) => ({ id: r.id, label: r.label, sortOrder: r.sort_order }))
+    : DEFAULT_RSVP_FORM_CONFIG.mealOptions;
+
+  return {
+    fields,
+    mealOptions,
+    maxGuests: wedding.rsvp_max_guests ?? DEFAULT_RSVP_FORM_CONFIG.maxGuests,
+    allowDecline:
+      wedding.rsvp_allow_decline ?? DEFAULT_RSVP_FORM_CONFIG.allowDecline,
+    plusOneConditional:
+      wedding.rsvp_plus_one_conditional ??
+      DEFAULT_RSVP_FORM_CONFIG.plusOneConditional,
+  };
+}
+
 /**
  * Fetch all public content for the configured wedding from Supabase.
  *
@@ -161,7 +235,7 @@ export const getWeddingContent = cache(async (): Promise<WeddingContent> => {
     );
   }
 
-  const [story, schedule, gallery, faqs] = await Promise.all([
+  const [story, schedule, gallery, faqs, rsvpFields, mealOptions] = await Promise.all([
     // story_milestones arrives with migration 00002; fall back to the seed
     // copy until it exists so the public site never breaks.
     supabase
@@ -190,6 +264,22 @@ export const getWeddingContent = cache(async (): Promise<WeddingContent> => {
       .eq("wedding_id", wedding.id)
       .order("display_order")
       .then(({ data }) => (data as FaqRow[] | null) ?? []),
+    // Both arrive with migration 00003 — null (→ defaults) until then.
+    supabase
+      .from("rsvp_form_fields")
+      .select("*")
+      .eq("wedding_id", wedding.id)
+      .then(({ data, error }) =>
+        error || !data ? null : (data as RsvpFieldRow[]),
+      ),
+    supabase
+      .from("meal_options")
+      .select("*")
+      .eq("wedding_id", wedding.id)
+      .order("sort_order")
+      .then(({ data, error }) =>
+        error || !data ? null : (data as MealOptionRow[]),
+      ),
   ]);
 
   return {
@@ -198,5 +288,6 @@ export const getWeddingContent = cache(async (): Promise<WeddingContent> => {
     schedule: schedule.map(mapSchedule),
     gallery: gallery.map(mapGalleryImage),
     faqs: faqs.map(mapFaq),
+    rsvpConfig: buildRsvpConfig(wedding, rsvpFields, mealOptions),
   };
 });

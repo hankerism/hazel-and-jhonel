@@ -64,6 +64,15 @@ where not exists (
   where wedding_id = '00000000-0000-0000-0000-000000000001'
 );
 
+-- Meal options (guarded, like the milestones above).
+insert into public.meal_options (wedding_id, label, sort_order)
+select '00000000-0000-0000-0000-000000000001', m.label, m.sort_order
+from (values ('Beef', 1), ('Chicken', 2), ('Fish', 3), ('Vegetarian', 4)) as m(label, sort_order)
+where not exists (
+  select 1 from public.meal_options
+  where wedding_id = '00000000-0000-0000-0000-000000000001'
+);
+
 insert into public.faqs (wedding_id, question, answer, display_order) values
   ('00000000-0000-0000-0000-000000000001', 'What is the dress code?', 'Formal attire, in keeping with our black and gold celebration. Suits or barongs for gentlemen, and long dresses or elegant evening wear for ladies.', 1),
   ('00000000-0000-0000-0000-000000000001', 'Can I bring a plus one?', 'If your invitation includes a plus one, there is a place for their name on the RSVP form. We would love to know who is joining you.', 2),

@@ -1,5 +1,10 @@
 import { getSupabaseAuthClient } from "@/lib/supabase/server-auth";
-import type { Attendance, RsvpRecord, RsvpStatus } from "@/types/wedding";
+import type {
+  Attendance,
+  ConfirmationEmailStatus,
+  RsvpRecord,
+  RsvpStatus,
+} from "@/types/wedding";
 
 interface RsvpRow {
   id: string;
@@ -16,6 +21,11 @@ interface RsvpRow {
   message: string | null;
   status: string;
   created_at: string;
+  /** Arrive with migration 00004 — optional until it has run. */
+  confirmation_email_status?: string | null;
+  confirmation_email_sent_at?: string | null;
+  confirmation_email_message_id?: string | null;
+  confirmation_email_error?: string | null;
 }
 
 /** All responses for a wedding, newest first. Runs as the signed-in couple —
@@ -48,5 +58,10 @@ export async function listRsvps(weddingId: string): Promise<RsvpRecord[]> {
     message: row.message,
     status: row.status as RsvpStatus,
     createdAt: row.created_at,
+    confirmationEmailStatus:
+      (row.confirmation_email_status as ConfirmationEmailStatus) ?? null,
+    confirmationEmailSentAt: row.confirmation_email_sent_at ?? null,
+    confirmationEmailMessageId: row.confirmation_email_message_id ?? null,
+    confirmationEmailError: row.confirmation_email_error ?? null,
   }));
 }

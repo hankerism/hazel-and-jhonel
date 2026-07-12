@@ -9,7 +9,7 @@ import {
   type RsvpRecord,
   type RsvpStatus,
 } from "@/types/wedding";
-import { updateRsvpStatus } from "./actions";
+import { resendConfirmationEmail, updateRsvpStatus } from "./actions";
 
 type AttendanceFilter = "all" | "attending" | "declining";
 type StatusFilter = "all" | RsvpStatus;
@@ -26,6 +26,7 @@ export function RsvpTable({ initial }: { initial: RsvpRecord[] }) {
   const [attendance, setAttendance] = useState<AttendanceFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
@@ -66,9 +67,85 @@ export function RsvpTable({ initial }: { initial: RsvpRecord[] }) {
     if (!result.ok) {
       setRows(prev);
       toast(result.error, "error");
+      return;
+    }
+
+    const { email } = result;
+    if (email.attempted && email.sent) {
+      setRows((current) =>
+        current.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                status: next,
+                confirmationEmailStatus: "sent",
+                confirmationEmailSentAt: email.sentAt,
+                confirmationEmailMessageId: email.messageId,
+                confirmationEmailError: null,
+              }
+            : r,
+        ),
+      );
+      toast("Marked as confirmed — confirmation email sent");
+    } else if (email.attempted && !email.sent) {
+      setRows((current) =>
+        current.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                status: next,
+                confirmationEmailStatus: "failed",
+                confirmationEmailError: email.error,
+              }
+            : r,
+        ),
+      );
+      toast(`Status saved, but the email failed — you can resend later`, "error");
+    } else if (email.reason === "already-sent") {
+      toast("Marked as confirmed — confirmation was already emailed");
+    } else if (email.reason === "not-configured") {
+      toast("Marked as confirmed — set up email in Settings to notify guests");
     } else {
       toast(`Marked as ${next}`);
     }
+  };
+
+  const resend = async (row: RsvpRecord) => {
+    setResending(true);
+    const result = await resendConfirmationEmail(row.id);
+    if (result.ok && result.email.attempted && result.email.sent) {
+      const { sentAt, messageId } = result.email;
+      setRows((current) =>
+        current.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                confirmationEmailStatus: "sent",
+                confirmationEmailSentAt: sentAt,
+                confirmationEmailMessageId: messageId,
+                confirmationEmailError: null,
+              }
+            : r,
+        ),
+      );
+      toast("Confirmation email sent");
+    } else {
+      const error =
+        result.ok && result.email.attempted && !result.email.sent
+          ? result.email.error
+          : !result.ok
+            ? result.error
+            : "Sending failed.";
+      setRows((current) =>
+        current.map((r) =>
+          r.id === row.id
+            ? { ...r, confirmationEmailStatus: "failed", confirmationEmailError: error }
+            : r,
+        ),
+      );
+      toast(error, "error");
+    }
+    setResending(false);
   };
 
   const exportCsv = () => {
@@ -281,6 +358,82 @@ export function RsvpTable({ initial }: { initial: RsvpRecord[] }) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Confirmation email log */}
+            <div className="border-t border-line pt-5">
+              <p className="eyebrow mb-3 text-[0.5625rem] text-stone">
+                Confirmation Email
+              </p>
+              <dl className="flex flex-col gap-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <dt className="text-stone">Status</dt>
+                  <dd>
+                    <span
+                      className={`rounded-full border px-2.5 py-0.5 text-xs ${
+                        active.confirmationEmailStatus === "sent"
+                          ? "border-[#9db894] bg-[#eef3ec] text-[#4c6a44]"
+                          : active.confirmationEmailStatus === "failed"
+                            ? "border-[#c4a09a] bg-[#f7ece9] text-[#8c4a3e]"
+                            : "border-line bg-white/70 text-stone"
+                      }`}
+                    >
+                      {active.confirmationEmailStatus === "sent"
+                        ? "Sent"
+                        : active.confirmationEmailStatus === "failed"
+                          ? "Failed"
+                          : "Not Sent"}
+                    </span>
+                  </dd>
+                </div>
+                {active.confirmationEmailSentAt && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-stone">Sent at</dt>
+                    <dd className="text-xs">
+                      {new Date(active.confirmationEmailSentAt).toLocaleString(
+                        "en-US",
+                        { dateStyle: "medium", timeStyle: "short" },
+                      )}
+                    </dd>
+                  </div>
+                )}
+                {active.confirmationEmailMessageId && (
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="shrink-0 text-stone">Message ID</dt>
+                    <dd className="truncate font-mono text-[0.6875rem] text-stone">
+                      {active.confirmationEmailMessageId}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {active.confirmationEmailError && (
+                <details className="mt-3 rounded-xl border border-[#c4a09a] bg-[#f7ece9]/60 px-4 py-2.5">
+                  <summary className="cursor-pointer text-xs font-medium text-[#8c4a3e]">
+                    Last error
+                  </summary>
+                  <p className="mt-2 text-xs leading-relaxed break-words text-[#8c4a3e]">
+                    {active.confirmationEmailError}
+                  </p>
+                </details>
+              )}
+
+              {active.status === "confirmed" &&
+                active.attendance === "attending" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-4"
+                    disabled={resending}
+                    onClick={() => resend(active)}
+                  >
+                    {resending
+                      ? "Sending…"
+                      : active.confirmationEmailStatus === "sent"
+                        ? "Resend Confirmation Email"
+                        : "Send Confirmation Email"}
+                  </Button>
+                )}
             </div>
           </div>
         )}

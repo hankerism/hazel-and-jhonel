@@ -14,11 +14,21 @@ export type ActionResult =
   | { ok: false; error: string };
 
 const MIGRATION_HINT =
-  "This feature needs migration 00002_dashboard.sql — run it in the Supabase SQL editor.";
+  "This feature needs a database migration — run the latest files in supabase/migrations in the Supabase SQL editor.";
 
 /** Normalize Supabase/Postgres errors into a user-facing message. */
 function friendly(error: { code?: string; message: string }): string {
-  if (error.code === "42P01" || error.code === "42703") return MIGRATION_HINT; // missing table/column
+  // Postgres: missing table/column. PostgREST: unknown column/table in
+  // schema cache (PGRST204/PGRST205) — same root cause: pending migration.
+  if (
+    error.code === "42P01" ||
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    error.code === "PGRST205" ||
+    /schema cache/i.test(error.message)
+  ) {
+    return MIGRATION_HINT;
+  }
   if (error.code === "42501") return "You don't have permission for that. " + MIGRATION_HINT;
   if (error.code === "23514") return "That value isn't allowed. " + MIGRATION_HINT;
   return error.message;
@@ -32,6 +42,23 @@ export async function insertRow(
   const { data, error } = await supabase
     .from(table)
     .insert(values)
+    .select("id")
+    .single<{ id: string }>();
+  return error
+    ? { ok: false, error: friendly(error) }
+    : { ok: true, id: data.id };
+}
+
+/** Insert-or-update keyed on `onConflict` columns. */
+export async function upsertRow(
+  table: string,
+  values: Record<string, unknown>,
+  onConflict: string,
+): Promise<ActionResult> {
+  const supabase = await getSupabaseAuthClient();
+  const { data, error } = await supabase
+    .from(table)
+    .upsert(values, { onConflict })
     .select("id")
     .single<{ id: string }>();
   return error

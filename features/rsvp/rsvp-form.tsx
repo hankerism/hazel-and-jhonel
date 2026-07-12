@@ -1,9 +1,13 @@
 "use client";
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
-import { MEAL_PREFERENCES, type Attendance } from "@/types/wedding";
+import type {
+  Attendance,
+  RsvpFieldConfig,
+  RsvpFormConfig,
+} from "@/types/wedding";
 import { submitRsvp, type RsvpFormState } from "./actions";
-import { MAX_GUESTS, type RsvpFieldValues } from "./validation";
+import type { RsvpFieldValues } from "./validation";
 
 const inputClass =
   "w-full border-b border-ivory/25 bg-transparent py-2.5 text-sm text-ivory placeholder:text-ivory/35 transition-colors focus:border-gold focus:outline-none";
@@ -15,20 +19,39 @@ const initialState: RsvpFormState = { status: "idle" };
 interface RsvpFormProps {
   /** Display names for copy, e.g. "Hazel Jean & Jhonel Rhey". */
   coupleNames: string;
+  /** The couple's form configuration (fields, meals, limits). */
+  config: RsvpFormConfig;
 }
+
+/** "Label" or "Label (optional)" — the form's original convention. */
+const fieldLabel = (cfg: RsvpFieldConfig) =>
+  cfg.required ? cfg.label : `${cfg.label} (optional)`;
 
 /**
  * Two-step RSVP. Step 1 asks only for the response — accept or decline —
  * like the reply card of a printed invitation. Step 2 reveals a form sized
- * to that answer: the full celebration form for acceptances, a brief
- * farewell note for declines. The choice stays visible and switchable
- * until the guest submits.
+ * to that answer, rendered entirely from the couple's configuration:
+ * visibility, requiredness, labels, placeholders, help text, meal options,
+ * and guest limits all come from the dashboard.
  */
-export function RsvpForm({ coupleNames }: RsvpFormProps) {
+export function RsvpForm({ coupleNames, config }: RsvpFormProps) {
   const [state, formAction, isPending] = useActionState(submitRsvp, initialState);
   const [attendance, setAttendance] = useState<Attendance | null>(null);
+  const [guestCount, setGuestCount] = useState("1");
   const detailsRef = useRef<HTMLDivElement>(null);
   const formId = useId();
+
+  const fields = config.fields;
+  const mealVisible =
+    fields.mealPreference.visible && config.mealOptions.length > 0;
+
+  // Restore the guest's chosen count after a validation round-trip (the
+  // select is controlled so the plus-one visibility can react to it).
+  useEffect(() => {
+    if (state.status === "error" && state.values.guestCount) {
+      setGuestCount(state.values.guestCount);
+    }
+  }, [state]);
 
   // Bring the newly revealed step into view.
   useEffect(() => {
@@ -47,8 +70,6 @@ export function RsvpForm({ coupleNames }: RsvpFormProps) {
   }
 
   if (state.status === "duplicate") {
-    // Same detection, different tone: a warm note for guests who tried to
-    // accept, a gracious acknowledgement for those declining.
     const declining = attendance === "declining";
     return (
       <div className="flex flex-col items-center gap-4 border border-gold/40 px-8 py-14 text-center">
@@ -84,6 +105,11 @@ export function RsvpForm({ coupleNames }: RsvpFormProps) {
   const values: RsvpFieldValues = state.status === "error" ? state.values : {};
   const attending = attendance === "attending";
 
+  const guests = Number.parseInt(guestCount, 10) || 1;
+  const plusOneShown =
+    fields.plusOneName.visible &&
+    (!config.plusOneConditional || guests > 1);
+
   return (
     <form action={formAction} noValidate className="flex flex-col gap-10">
       {/* Attendance travels via this controlled input: the visual cards
@@ -93,19 +119,25 @@ export function RsvpForm({ coupleNames }: RsvpFormProps) {
       {/* Step 1 — the reply card */}
       <fieldset>
         <legend className="sr-only">Will you be celebrating with us?</legend>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div
+          className={`grid grid-cols-1 gap-4 ${
+            config.allowDecline ? "sm:grid-cols-2" : "mx-auto w-full max-w-sm"
+          }`}
+        >
           <AttendanceCard
             glyph="✓"
             label="Joyfully Accepts"
             checked={attendance === "attending"}
             onChange={() => setAttendance("attending")}
           />
-          <AttendanceCard
-            glyph="✕"
-            label="Regretfully Declines"
-            checked={attendance === "declining"}
-            onChange={() => setAttendance("declining")}
-          />
+          {config.allowDecline && (
+            <AttendanceCard
+              glyph="✕"
+              label="Regretfully Declines"
+              checked={attendance === "declining"}
+              onChange={() => setAttendance("declining")}
+            />
+          )}
         </div>
         <FieldError message={errors.attendance} />
       </fieldset>
@@ -126,136 +158,158 @@ export function RsvpForm({ coupleNames }: RsvpFormProps) {
 
           {/* Identity */}
           <div className="grid gap-6 sm:grid-cols-2">
-            <Field label="First Name" error={errors.firstName} id={`${formId}-first`}>
-              <input
-                id={`${formId}-first`}
-                name="firstName"
-                autoComplete="given-name"
-                defaultValue={values.firstName}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Last Name" error={errors.lastName} id={`${formId}-last`}>
-              <input
-                id={`${formId}-last`}
-                name="lastName"
-                autoComplete="family-name"
-                defaultValue={values.lastName}
-                className={inputClass}
-              />
-            </Field>
-            <Field
-              label="Email"
-              error={errors.email}
+            <ConfiguredInput
+              cfg={fields.firstName}
+              name="firstName"
+              id={`${formId}-first`}
+              autoComplete="given-name"
+              defaultValue={values.firstName}
+              error={errors.firstName}
+            />
+            <ConfiguredInput
+              cfg={fields.lastName}
+              name="lastName"
+              id={`${formId}-last`}
+              autoComplete="family-name"
+              defaultValue={values.lastName}
+              error={errors.lastName}
+            />
+            <ConfiguredInput
+              cfg={fields.email}
+              name="email"
               id={`${formId}-email`}
-              className={attending ? "" : "sm:col-span-2"}
-            >
-              <input
-                id={`${formId}-email`}
-                name="email"
-                type="email"
-                autoComplete="email"
-                defaultValue={values.email}
-                className={inputClass}
+              type="email"
+              autoComplete="email"
+              defaultValue={values.email}
+              error={errors.email}
+              className={
+                attending && fields.phone.visible ? "" : "sm:col-span-2"
+              }
+            />
+            {attending && fields.phone.visible && (
+              <ConfiguredInput
+                cfg={fields.phone}
+                name="phone"
+                id={`${formId}-phone`}
+                type="tel"
+                autoComplete="tel"
+                defaultValue={values.phone}
+                error={errors.phone}
               />
-            </Field>
-            {attending && (
-              <Field label="Phone Number (optional)" id={`${formId}-phone`}>
-                <input
-                  id={`${formId}-phone`}
-                  name="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  defaultValue={values.phone}
-                  className={inputClass}
-                />
-              </Field>
             )}
           </div>
 
           {/* Celebration details — acceptances only */}
           {attending && (
             <div className="grid gap-6 sm:grid-cols-2">
-              <Field label="Number of Guests" error={errors.guestCount} id={`${formId}-guests`}>
-                <select
+              {fields.guestCount.visible && (
+                <Field
+                  label={fieldLabel(fields.guestCount)}
+                  help={fields.guestCount.helpText}
+                  error={errors.guestCount}
                   id={`${formId}-guests`}
-                  name="guestCount"
-                  defaultValue={values.guestCount || "1"}
-                  className={`${inputClass} cursor-pointer`}
                 >
-                  {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n} className="text-charcoal">
-                      {n} {n === 1 ? "guest" : "guests"}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Plus One Name (optional)" id={`${formId}-plusone`}>
-                <input
-                  id={`${formId}-plusone`}
+                  <select
+                    id={`${formId}-guests`}
+                    name="guestCount"
+                    value={guestCount}
+                    onChange={(e) => setGuestCount(e.target.value)}
+                    className={`${inputClass} cursor-pointer`}
+                  >
+                    {Array.from({ length: config.maxGuests }, (_, i) => i + 1).map(
+                      (n) => (
+                        <option key={n} value={n} className="text-charcoal">
+                          {n} {n === 1 ? "guest" : "guests"}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+              )}
+              {plusOneShown && (
+                <ConfiguredInput
+                  cfg={fields.plusOneName}
                   name="plusOneName"
+                  id={`${formId}-plusone`}
                   defaultValue={values.plusOneName}
-                  className={inputClass}
+                  error={errors.plusOneName}
                 />
-              </Field>
-              <Field label="Meal Preference" error={errors.mealPreference} id={`${formId}-meal`}>
-                <select
+              )}
+              {mealVisible && (
+                <Field
+                  label={fieldLabel(fields.mealPreference)}
+                  help={fields.mealPreference.helpText}
+                  error={errors.mealPreference}
                   id={`${formId}-meal`}
-                  name="mealPreference"
-                  defaultValue={values.mealPreference || ""}
-                  className={`${inputClass} cursor-pointer`}
                 >
-                  <option value="" disabled className="text-charcoal">
-                    Choose a meal
-                  </option>
-                  {MEAL_PREFERENCES.map((meal) => (
-                    <option key={meal} value={meal} className="text-charcoal">
-                      {meal}
+                  <select
+                    id={`${formId}-meal`}
+                    name="mealPreference"
+                    defaultValue={values.mealPreference || ""}
+                    className={`${inputClass} cursor-pointer`}
+                  >
+                    <option value="" disabled className="text-charcoal">
+                      {fields.mealPreference.placeholder || "Choose a meal"}
                     </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Dietary Restrictions (optional)" id={`${formId}-diet`}>
-                <input
-                  id={`${formId}-diet`}
+                    {config.mealOptions.map((meal) => (
+                      <option
+                        key={meal.id}
+                        value={meal.label}
+                        className="text-charcoal"
+                      >
+                        {meal.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              {fields.dietaryRestrictions.visible && (
+                <ConfiguredInput
+                  cfg={fields.dietaryRestrictions}
                   name="dietaryRestrictions"
+                  id={`${formId}-diet`}
                   defaultValue={values.dietaryRestrictions}
-                  className={inputClass}
+                  error={errors.dietaryRestrictions}
                 />
-              </Field>
-              <Field label="Song Request (optional)" id={`${formId}-song`} className="sm:col-span-2">
-                <input
-                  id={`${formId}-song`}
+              )}
+              {fields.songRequest.visible && (
+                <ConfiguredInput
+                  cfg={fields.songRequest}
                   name="songRequest"
-                  placeholder="What will get you on the dance floor?"
+                  id={`${formId}-song`}
                   defaultValue={values.songRequest}
-                  className={inputClass}
+                  error={errors.songRequest}
+                  className="sm:col-span-2"
                 />
-              </Field>
+              )}
             </div>
           )}
 
-          <Field
-            label={
-              attending
-                ? "Special Message (optional)"
-                : "A Message for the Couple (optional)"
-            }
-            id={`${formId}-message`}
-          >
-            <textarea
-              id={`${formId}-message`}
-              name="message"
-              rows={3}
-              placeholder={
+          {fields.message.visible && (
+            <Field
+              label={
                 attending
-                  ? undefined
-                  : `We'll be celebrating from afar. Leave a message for ${coupleNames}.`
+                  ? fieldLabel(fields.message)
+                  : "A Message for the Couple (optional)"
               }
-              defaultValue={values.message}
-              className={`${inputClass} resize-none`}
-            />
-          </Field>
+              help={attending ? fields.message.helpText : null}
+              error={errors.message}
+              id={`${formId}-message`}
+            >
+              <textarea
+                id={`${formId}-message`}
+                name="message"
+                rows={3}
+                placeholder={
+                  attending
+                    ? (fields.message.placeholder ?? undefined)
+                    : `We'll be celebrating from afar. Leave a message for ${coupleNames}.`
+                }
+                defaultValue={values.message}
+                className={`${inputClass} resize-none`}
+              />
+            </Field>
+          )}
 
           {state.status === "error" && (
             <p role="alert" className="text-center text-sm text-[#c98d7f]">
@@ -316,15 +370,45 @@ function AttendanceCard({
   );
 }
 
+/** A configured text input: label, placeholder, and help text from config. */
+function ConfiguredInput({
+  cfg,
+  name,
+  id,
+  error,
+  className = "",
+  ...rest
+}: {
+  cfg: RsvpFieldConfig;
+  name: string;
+  id: string;
+  error?: string;
+  className?: string;
+} & React.ComponentProps<"input">) {
+  return (
+    <Field label={fieldLabel(cfg)} help={cfg.helpText} error={error} id={id} className={className}>
+      <input
+        id={id}
+        name={name}
+        placeholder={cfg.placeholder ?? undefined}
+        className={inputClass}
+        {...rest}
+      />
+    </Field>
+  );
+}
+
 function Field({
   label,
   id,
+  help,
   error,
   className = "",
   children,
 }: {
   label: string;
   id: string;
+  help?: string | null;
   error?: string;
   className?: string;
   children: React.ReactNode;
@@ -335,6 +419,7 @@ function Field({
         {label}
       </label>
       {children}
+      {help && <p className="mt-1 text-xs leading-relaxed text-ivory/45">{help}</p>}
       <FieldError message={error} />
     </div>
   );

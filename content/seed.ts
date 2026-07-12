@@ -1,3 +1,4 @@
+import { DEFAULT_RSVP_FORM_CONFIG } from "@/content/rsvp-form-defaults";
 import type { WeddingContent } from "@/types/wedding";
 
 /**
@@ -42,6 +43,8 @@ export const seedContent: WeddingContent = {
     musicUrl: "/audio/bgm.mp3",
     musicAutoplay: true,
   },
+
+  rsvpConfig: DEFAULT_RSVP_FORM_CONFIG,
 
   story: [
     {

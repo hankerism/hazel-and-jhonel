@@ -67,28 +67,75 @@ export interface WeddingContent {
   schedule: ScheduleItem[];
   gallery: GalleryImage[];
   faqs: Faq[];
+  rsvpConfig: RsvpFormConfig;
 }
 
 export const RSVP_STATUSES = ["pending", "confirmed", "contacted"] as const;
 export type RsvpStatus = (typeof RSVP_STATUSES)[number];
+
+export type ConfirmationEmailStatus = "sent" | "failed" | null;
 
 /** A full RSVP row as the dashboard sees it. */
 export interface RsvpRecord extends RsvpInput {
   id: string;
   status: RsvpStatus;
   createdAt: string;
+  confirmationEmailStatus: ConfirmationEmailStatus;
+  confirmationEmailSentAt: string | null;
+  confirmationEmailMessageId: string | null;
+  confirmationEmailError: string | null;
 }
 
 export const ATTENDANCE_VALUES = ["attending", "declining"] as const;
 export type Attendance = (typeof ATTENDANCE_VALUES)[number];
 
-export const MEAL_PREFERENCES = [
-  "Beef",
-  "Chicken",
-  "Fish",
-  "Vegetarian",
+/* ------------------------------------------------- RSVP form configuration */
+
+export const RSVP_FIELD_KEYS = [
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "guestCount",
+  "plusOneName",
+  "mealPreference",
+  "dietaryRestrictions",
+  "songRequest",
+  "message",
 ] as const;
-export type MealPreference = (typeof MEAL_PREFERENCES)[number];
+export type RsvpFieldKey = (typeof RSVP_FIELD_KEYS)[number];
+
+/** Identity fields the system depends on (records, duplicate detection):
+ * always visible and required, whatever the stored configuration says. */
+export const LOCKED_RSVP_FIELDS: readonly RsvpFieldKey[] = [
+  "firstName",
+  "lastName",
+  "email",
+];
+
+export interface RsvpFieldConfig {
+  key: RsvpFieldKey;
+  visible: boolean;
+  required: boolean;
+  label: string;
+  placeholder: string | null;
+  helpText: string | null;
+}
+
+export interface MealOption {
+  id: string;
+  label: string;
+  sortOrder: number;
+}
+
+export interface RsvpFormConfig {
+  fields: Record<RsvpFieldKey, RsvpFieldConfig>;
+  mealOptions: MealOption[];
+  maxGuests: number;
+  allowDecline: boolean;
+  /** Show plus-one fields only when the party size is above one. */
+  plusOneConditional: boolean;
+}
 
 export interface RsvpInput {
   firstName: string;
@@ -98,7 +145,8 @@ export interface RsvpInput {
   attendance: Attendance;
   guestCount: number;
   plusOneName: string | null;
-  mealPreference: MealPreference | null;
+  /** Validated against the wedding's configured meal options. */
+  mealPreference: string | null;
   dietaryRestrictions: string | null;
   songRequest: string | null;
   message: string | null;

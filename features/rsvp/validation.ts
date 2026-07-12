@@ -1,8 +1,7 @@
 import {
   ATTENDANCE_VALUES,
-  MEAL_PREFERENCES,
   type Attendance,
-  type MealPreference,
+  type RsvpFormConfig,
   type RsvpInput,
 } from "@/types/wedding";
 
@@ -13,10 +12,11 @@ export type ParseResult =
   | { ok: false; fieldErrors: FieldErrors };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const MAX_GUESTS = 10;
 
 const text = (data: FormData, key: string): string =>
   String(data.get(key) ?? "").trim();
+
+const optional = (value: string): string | null => (value ? value : null);
 
 export const RSVP_FIELDS = [
   "firstName",
@@ -42,19 +42,24 @@ export function extractValues(data: FormData): RsvpFieldValues {
   return values;
 }
 
-const optional = (value: string): string | null => (value ? value : null);
-
-/** Validates raw form data into a typed RsvpInput. Only the fields relevant
- * to the chosen response are required: declining guests just need name and
- * email; phone is always optional. Attendance details are dropped for
- * declines. */
-export function parseRsvpForm(data: FormData): ParseResult {
+/**
+ * Validates raw form data into a typed RsvpInput, honoring the wedding's
+ * form configuration: hidden fields are ignored, required flags are
+ * enforced, guest counts respect the configured maximum, and meal choices
+ * must be one of the configured options. Identity fields are always
+ * required (they anchor the record and duplicate detection); declining
+ * guests only need those plus an optional message.
+ */
+export function parseRsvpForm(
+  data: FormData,
+  config: RsvpFormConfig,
+): ParseResult {
   const fieldErrors: FieldErrors = {};
+  const fields = config.fields;
 
   const firstName = text(data, "firstName");
   const lastName = text(data, "lastName");
   const email = text(data, "email");
-  const phone = text(data, "phone");
   const attendanceRaw = text(data, "attendance");
 
   if (!firstName) fieldErrors.firstName = "Please share your first name.";
@@ -69,42 +74,87 @@ export function parseRsvpForm(data: FormData): ParseResult {
   }
   const attendance = attendanceRaw as Attendance;
 
+  if (attendance === "declining" && !config.allowDecline) {
+    fieldErrors.attendance = "Please let us know if you can join us.";
+    return { ok: false, fieldErrors };
+  }
+
+  const attending = attendance === "attending";
+
+  /** Value for an optional-capable text field, honoring visibility and
+   * requiredness. Only consulted for the attending branch. */
+  const configuredText = (
+    key: "phone" | "plusOneName" | "dietaryRestrictions" | "songRequest",
+  ): string | null => {
+    const cfg = fields[key];
+    if (!cfg.visible) return null;
+    const value = text(data, key);
+    if (cfg.required && !value) {
+      fieldErrors[key] = `Please fill in ${cfg.label.toLowerCase()}.`;
+    }
+    return optional(value);
+  };
+
   let guestCount = 1;
-  let mealPreference: MealPreference | null = null;
+  let mealPreference: string | null = null;
+  let phone: string | null = null;
+  let plusOneName: string | null = null;
+  let dietaryRestrictions: string | null = null;
+  let songRequest: string | null = null;
 
-  if (attendance === "attending") {
-    guestCount = Number.parseInt(text(data, "guestCount"), 10);
-    if (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > MAX_GUESTS) {
-      fieldErrors.guestCount = "Please choose how many seats you need.";
+  if (attending) {
+    if (fields.guestCount.visible) {
+      guestCount = Number.parseInt(text(data, "guestCount"), 10);
+      if (
+        !Number.isInteger(guestCount) ||
+        guestCount < 1 ||
+        guestCount > config.maxGuests
+      ) {
+        fieldErrors.guestCount = "Please choose how many seats you need.";
+      }
     }
 
-    const meal = text(data, "mealPreference");
-    if ((MEAL_PREFERENCES as readonly string[]).includes(meal)) {
-      mealPreference = meal as MealPreference;
-    } else {
-      fieldErrors.mealPreference = "Please choose a meal preference.";
+    const mealVisible =
+      fields.mealPreference.visible && config.mealOptions.length > 0;
+    if (mealVisible) {
+      const meal = text(data, "mealPreference");
+      if (config.mealOptions.some((o) => o.label === meal)) {
+        mealPreference = meal;
+      } else if (fields.mealPreference.required || meal) {
+        fieldErrors.mealPreference = "Please choose a meal preference.";
+      }
     }
+
+    phone = configuredText("phone");
+    dietaryRestrictions = configuredText("dietaryRestrictions");
+    songRequest = configuredText("songRequest");
+
+    const plusOneApplies =
+      !config.plusOneConditional || guestCount > 1;
+    if (plusOneApplies) plusOneName = configuredText("plusOneName");
+  }
+
+  const message = fields.message.visible ? optional(text(data, "message")) : null;
+  if (attending && fields.message.visible && fields.message.required && !message) {
+    fieldErrors.message = `Please fill in ${fields.message.label.toLowerCase()}.`;
   }
 
   if (Object.keys(fieldErrors).length > 0) return { ok: false, fieldErrors };
 
-  const attending = attendance === "attending";
   return {
     ok: true,
     input: {
       firstName,
       lastName,
       email,
-      phone,
+      phone: phone ?? "",
       attendance,
       guestCount: attending ? guestCount : 0,
-      plusOneName: attending ? optional(text(data, "plusOneName")) : null,
-      mealPreference: attending ? mealPreference : null,
-      dietaryRestrictions: attending
-        ? optional(text(data, "dietaryRestrictions"))
-        : null,
-      songRequest: attending ? optional(text(data, "songRequest")) : null,
-      message: optional(text(data, "message")),
+      plusOneName,
+      mealPreference,
+      dietaryRestrictions,
+      songRequest,
+      message,
     },
   };
 }

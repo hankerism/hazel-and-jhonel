@@ -28,7 +28,9 @@ export async function submitRsvp(
 ): Promise<RsvpFormState> {
   const values = extractValues(formData);
 
-  const parsed = parseRsvpForm(formData);
+  // Validation follows the couple's stored form configuration.
+  const { wedding, rsvpConfig } = await getWeddingContent();
+  const parsed = parseRsvpForm(formData, rsvpConfig);
   if (!parsed.ok) {
     return {
       status: "error",
@@ -38,7 +40,6 @@ export async function submitRsvp(
     };
   }
 
-  const { wedding } = await getWeddingContent();
   const result = await saveRsvp(wedding.id, parsed.input);
 
   if (!result.ok) {

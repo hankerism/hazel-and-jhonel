@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Field, Input } from "@/components/dashboard/ui";
+import { Button, Card, Field, Input, Switch } from "@/components/dashboard/ui";
 import { useSaveStatus } from "@/components/dashboard/save-status";
 import { useToast } from "@/components/dashboard/toast";
 import type { Wedding } from "@/types/wedding";
@@ -52,33 +52,12 @@ export function SettingsForm({ wedding }: { wedding: Wedding }) {
           />
         </Field>
 
-        {/* Autoplay toggle */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={autoplay}
-          onClick={() => setAutoplay((v) => !v)}
-          className="flex w-fit cursor-pointer items-center gap-3"
-        >
-          <span
-            aria-hidden
-            className={`relative h-6 w-11 rounded-full border transition-colors duration-300 ${
-              autoplay ? "border-gold-deep bg-gold" : "border-line bg-white/70"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-[1.15rem] w-[1.15rem] rounded-full bg-ivory shadow transition-all duration-300 ${
-                autoplay ? "left-[1.35rem]" : "left-0.5"
-              }`}
-            />
-          </span>
-          <span className="text-sm">
-            Start music automatically
-            <span className="block text-xs text-stone">
-              When off, guests start the music themselves from the corner player.
-            </span>
-          </span>
-        </button>
+        <Switch
+          checked={autoplay}
+          onChange={setAutoplay}
+          label="Start music automatically"
+          hint="When off, guests start the music themselves from the corner player."
+        />
 
         <div className="flex justify-end">
           <Button onClick={save} disabled={!dirty || pending}>

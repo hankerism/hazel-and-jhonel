@@ -1,14 +1,15 @@
 import { SectionHeading } from "@/components/ui/section-heading";
 import { Reveal } from "@/components/ui/reveal";
 import { formatLongDate } from "@/lib/datetime";
-import type { Wedding } from "@/types/wedding";
+import type { RsvpFormConfig, Wedding } from "@/types/wedding";
 import { RsvpForm } from "./rsvp-form";
 
 interface RsvpSectionProps {
   wedding: Wedding;
+  rsvpConfig: RsvpFormConfig;
 }
 
-export function RsvpSection({ wedding }: RsvpSectionProps) {
+export function RsvpSection({ wedding, rsvpConfig }: RsvpSectionProps) {
   const deadline = formatLongDate(wedding.rsvpDeadline, {
     month: "long",
     day: "numeric",
@@ -32,7 +33,10 @@ export function RsvpSection({ wedding }: RsvpSectionProps) {
         </Reveal>
 
         <Reveal delay={150} className="mt-14">
-          <RsvpForm coupleNames={`${wedding.brideName} & ${wedding.groomName}`} />
+          <RsvpForm
+            coupleNames={`${wedding.brideName} & ${wedding.groomName}`}
+            config={rsvpConfig}
+          />
         </Reveal>
       </div>
     </section>
