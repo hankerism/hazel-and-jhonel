@@ -1,26 +1,105 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ---------------------------------------------------------------- theme */
+
+@theme {
+  /* Palette — warm ivory, deep charcoal, antique gold */
+  --color-ivory: #faf8f5;
+  --color-parchment: #f2ede5;
+  --color-charcoal: #26231f;
+  --color-ink: #1a1815;
+  --color-gold: #a9885a;
+  --color-gold-deep: #8c6f45;
+  --color-stone: #857f75;
+  --color-line: #e6dfd3;
+  --color-line-dark: #4a453e;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-cormorant), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ----------------------------------------------------------------- base */
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ivory);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: var(--color-gold);
+  color: var(--color-ivory);
+}
+
+/* Anchored sections settle below the fixed navigation. */
+section[id] {
+  scroll-margin-top: 4.5rem;
+}
+
+/* ------------------------------------------------------------ utilities */
+
+/* Letterspaced small-caps label, the editorial "eyebrow". */
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+/* -------------------------------------------------------------- effects */
+
+/* Scroll reveal — elements fade and rise once, driven by <Reveal>. */
+.reveal {
+  opacity: 0;
+  transform: translateY(1.75rem);
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* One-shot entrance for content revealed by interaction (RSVP step 2). */
+.fade-slide-in {
+  animation: fade-slide-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .fade-slide-in {
+    animation: none;
+  }
 }
