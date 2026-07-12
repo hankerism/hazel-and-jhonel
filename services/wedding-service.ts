@@ -6,6 +6,7 @@ import type {
   Faq,
   GalleryImage,
   ScheduleItem,
+  StoryMilestone,
   Wedding,
   WeddingContent,
 } from "@/types/wedding";
@@ -31,6 +32,17 @@ interface WeddingRow {
   parking_note: string;
   welcome_message: string;
   hero_image: string;
+  /** Added by migration 00002 — optional until it has run. */
+  music_url?: string;
+  music_autoplay?: boolean;
+}
+
+interface StoryRow {
+  id: string;
+  title: string;
+  body: string;
+  image_url: string | null;
+  sort_order: number;
 }
 
 interface ScheduleRow {
@@ -81,8 +93,18 @@ function mapWedding(row: WeddingRow): Wedding {
     parkingNote: row.parking_note,
     welcomeMessage: row.welcome_message,
     heroImage: row.hero_image,
+    musicUrl: row.music_url ?? "/audio/bgm.mp3",
+    musicAutoplay: row.music_autoplay ?? true,
   };
 }
+
+const mapStoryMilestone = (row: StoryRow): StoryMilestone => ({
+  id: row.id,
+  title: row.title,
+  body: row.body,
+  imageUrl: row.image_url,
+  sortOrder: row.sort_order,
+});
 
 const mapSchedule = (row: ScheduleRow): ScheduleItem => ({
   id: row.id,
@@ -139,7 +161,17 @@ export const getWeddingContent = cache(async (): Promise<WeddingContent> => {
     );
   }
 
-  const [schedule, gallery, faqs] = await Promise.all([
+  const [story, schedule, gallery, faqs] = await Promise.all([
+    // story_milestones arrives with migration 00002; fall back to the seed
+    // copy until it exists so the public site never breaks.
+    supabase
+      .from("story_milestones")
+      .select("*")
+      .eq("wedding_id", wedding.id)
+      .order("sort_order")
+      .then(({ data, error }) =>
+        error || !data ? null : (data as StoryRow[]),
+      ),
     supabase
       .from("schedule_items")
       .select("*")
@@ -162,6 +194,7 @@ export const getWeddingContent = cache(async (): Promise<WeddingContent> => {
 
   return {
     wedding: mapWedding(wedding),
+    story: story ? story.map(mapStoryMilestone) : seedContent.story,
     schedule: schedule.map(mapSchedule),
     gallery: gallery.map(mapGalleryImage),
     faqs: faqs.map(mapFaq),

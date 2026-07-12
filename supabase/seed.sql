@@ -47,6 +47,23 @@ insert into public.gallery_images (wedding_id, image_url, caption, display_order
   ('00000000-0000-0000-0000-000000000001', 'https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1600&q=80', 'With this ring', 7),
   ('00000000-0000-0000-0000-000000000001', 'https://images.unsplash.com/photo-1469371670807-013ccf25f16a?auto=format&fit=crop&w=1600&q=80', 'Celebration', 8);
 
+-- Story milestones (guarded: migration 00002 seeds these when it runs after
+-- this wedding already exists — fresh installs get them here instead).
+insert into public.story_milestones (wedding_id, title, body, sort_order)
+select '00000000-0000-0000-0000-000000000001', m.title, m.body, m.sort_order
+from (values
+  ('How We Met',
+   'Two paths crossed at just the right moment, and a conversation that was never meant to end — didn''t.', 1),
+  ('The Proposal',
+   'One quiet, perfect question. One joyful, certain yes. And everything after became ours to plan together.', 2),
+  ('See You At The Wedding',
+   'The best chapter is the one we write next — and it begins with you there beside us.', 3)
+) as m(title, body, sort_order)
+where not exists (
+  select 1 from public.story_milestones
+  where wedding_id = '00000000-0000-0000-0000-000000000001'
+);
+
 insert into public.faqs (wedding_id, question, answer, display_order) values
   ('00000000-0000-0000-0000-000000000001', 'What is the dress code?', 'Formal attire, in keeping with our black and gold celebration. Suits or barongs for gentlemen, and long dresses or elegant evening wear for ladies.', 1),
   ('00000000-0000-0000-0000-000000000001', 'Can I bring a plus one?', 'If your invitation includes a plus one, there is a place for their name on the RSVP form. We would love to know who is joining you.', 2),

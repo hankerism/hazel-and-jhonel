@@ -25,6 +25,16 @@ export interface Wedding {
   parkingNote: string;
   welcomeMessage: string;
   heroImage: string;
+  musicUrl: string;
+  musicAutoplay: boolean;
+}
+
+export interface StoryMilestone {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  sortOrder: number;
 }
 
 export interface ScheduleItem {
@@ -53,9 +63,20 @@ export interface Faq {
 /** Everything the public site needs, fetched in one call. */
 export interface WeddingContent {
   wedding: Wedding;
+  story: StoryMilestone[];
   schedule: ScheduleItem[];
   gallery: GalleryImage[];
   faqs: Faq[];
+}
+
+export const RSVP_STATUSES = ["pending", "confirmed", "contacted"] as const;
+export type RsvpStatus = (typeof RSVP_STATUSES)[number];
+
+/** A full RSVP row as the dashboard sees it. */
+export interface RsvpRecord extends RsvpInput {
+  id: string;
+  status: RsvpStatus;
+  createdAt: string;
 }
 
 export const ATTENDANCE_VALUES = ["attending", "declining"] as const;

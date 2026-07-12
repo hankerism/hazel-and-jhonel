@@ -39,7 +39,33 @@ export const seedContent: WeddingContent = {
       "Join us as we celebrate our love and begin our journey together.",
     heroImage:
       "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2400&q=80",
+    musicUrl: "/audio/bgm.mp3",
+    musicAutoplay: true,
   },
+
+  story: [
+    {
+      id: "m1",
+      title: "How We Met",
+      body: "Two paths crossed at just the right moment, and a conversation that was never meant to end — didn't.",
+      imageUrl: null,
+      sortOrder: 1,
+    },
+    {
+      id: "m2",
+      title: "The Proposal",
+      body: "One quiet, perfect question. One joyful, certain yes. And everything after became ours to plan together.",
+      imageUrl: null,
+      sortOrder: 2,
+    },
+    {
+      id: "m3",
+      title: "See You At The Wedding",
+      body: "The best chapter is the one we write next — and it begins with you there beside us.",
+      imageUrl: null,
+      sortOrder: 3,
+    },
+  ],
 
   schedule: [
     { id: "s1", time: "15:30", title: "Guest Arrival", description: null, sortOrder: 1 },
