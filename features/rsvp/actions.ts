@@ -1,7 +1,10 @@
 "use server";
 
+import { after } from "next/server";
+import { getSiteUrl } from "@/lib/site-url";
 import { getWeddingContent } from "@/services/wedding-service";
 import { saveRsvp } from "@/services/rsvp-service";
+import { sendNewRsvpNotification } from "@/services/email/notification-service";
 import {
   extractValues,
   parseRsvpForm,
@@ -51,6 +54,21 @@ export async function submitRsvp(
       values,
     };
   }
+
+  // Notify the couple about the new RSVP — only here, on initial creation
+  // (edits, status changes, and resends live in the dashboard actions).
+  // Scheduled after the response so the guest never waits on SMTP, and the
+  // service swallows failures so the saved RSVP is never rolled back.
+  const submittedAt = new Date().toISOString();
+  const siteUrl = await getSiteUrl();
+  after(() =>
+    sendNewRsvpNotification({
+      wedding,
+      rsvp: parsed.input,
+      submittedAt,
+      siteUrl,
+    }),
+  );
 
   return {
     status: "success",

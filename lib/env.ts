@@ -11,6 +11,9 @@ export const env = {
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
   /** Set automatically by Vercel: the project's production hostname. */
   vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  /** Overrides where new-RSVP notifications go. Resolution (including the
+   * default recipient) lives in services/email/notification-service. */
+  rsvpNotificationEmail: process.env.RSVP_NOTIFICATION_EMAIL,
   /** SMTP — server-side only, never reaches the client bundle. */
   smtp: {
     host: process.env.SMTP_HOST,

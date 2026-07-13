@@ -9,6 +9,13 @@
  * Outlook, and Yahoo.
  */
 
+/** What every template renders to — ready to hand to the mailer. */
+export interface RenderedEmail {
+  subject: string;
+  html: string;
+  text: string;
+}
+
 export const palette = {
   ivory: "#faf8f5",
   parchment: "#f2ede5",

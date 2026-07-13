@@ -14,13 +14,10 @@ import {
   palette,
   serif,
   sans,
+  type RenderedEmail,
 } from "../template-kit";
 
-export interface RenderedEmail {
-  subject: string;
-  html: string;
-  text: string;
-}
+export type { RenderedEmail };
 
 interface ConfirmationProps {
   wedding: Wedding;
