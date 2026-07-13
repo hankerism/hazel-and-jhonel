@@ -18,9 +18,16 @@ by `WEDDING_SLUG`.
 
 In the Supabase Dashboard → SQL Editor, run in order:
 
-1. `supabase/migrations/00001_initial_schema.sql` — tables, indexes,
+1. `supabase/migrations/00001_initial_schema.sql` — core tables, indexes,
    constraints, triggers, Row Level Security
-2. `supabase/seed.sql` — Hazel & Jhonel's wedding content
+2. `supabase/migrations/00002_dashboard.sql` — story milestones, music
+   settings, RSVP statuses, authenticated RLS policies
+3. `supabase/migrations/00003_rsvp_form_config.sql` — configurable RSVP
+   form fields, meal options, form settings
+4. `supabase/migrations/00004_email_system.sql` — confirmation-email
+   tracking columns
+5. `supabase/seed.sql` — Hazel & Jhonel's wedding content (references
+   tables from 00002/00003, so it must run **after** all migrations)
 
 (Or with the CLI: `supabase link`, then `supabase db push`, then run the
 seed.)
@@ -34,12 +41,13 @@ Settings → API:
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | required — project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | required — public anon key (RLS enforced) |
-| `SUPABASE_SERVICE_ROLE_KEY` | optional — server-only, reserved for the future `/admin` dashboard |
+| `SUPABASE_SERVICE_ROLE_KEY` | optional — server-only, reserved for future admin tooling (unused by the app today) |
 | `WEDDING_SLUG` | which `weddings.slug` this deployment serves (default `hazel-and-jhonel`) |
 | `NEXT_PUBLIC_SITE_URL` | public base URL used in emails and calendar links (production: the deployed URL; falls back to the request origin) |
-| `SMTP_*` | Gmail SMTP for confirmation emails — see `.env.example` (server-side only) |
+| `SMTP_*` | Gmail SMTP for confirmation + notification emails — see `.env.example` (server-side only; for Gmail use an App Password, not the account password) |
+| `RSVP_NOTIFICATION_EMAIL` | optional — where "New RSVP received" notifications go (defaults to the couple's inbox, resolved in `services/email/notification-service.ts`) |
 
-Set the same four variables in Vercel → Project → Settings → Environment
+Set the same variables in Vercel → Project → Settings → Environment
 Variables for deployments.
 
 ### 3. Run
@@ -59,9 +67,12 @@ rather than serving stale content.
 ## Security model
 
 The app ships only the anon key. RLS limits anonymous access to reading
-public content (`weddings`, `schedule_items`, `gallery_images`, `faqs`) and
-**inserting** into `rsvps` — guests can never read, update, or delete
-responses. Duplicate RSVPs are blocked by a unique index on
+public content (`weddings`, `schedule_items`, `gallery_images`, `faqs`,
+`story_milestones`, `meal_options`, `rsvp_form_fields`) and **inserting**
+into `rsvps` — guests can never read, update, or delete responses. The
+couple signs in via Supabase Auth; authenticated users manage content and
+read/update RSVPs (no delete policy exists — responses are a record).
+Duplicate RSVPs are blocked by a unique index on
 `(wedding_id, lower(email))`. The service role key bypasses RLS and must
 never be exposed to the browser.
 
@@ -81,7 +92,18 @@ demands it (nav, countdown, gallery lightbox, RSVP form, scroll reveals).
 The page revalidates hourly (ISR), so content edited in Supabase reaches
 guests without a redeploy.
 
-The schema is already shaped for the future `/admin` dashboard (guest list,
-meal counts, schedule/gallery/FAQ editors): RSVPs carry a `status` column,
-all tables carry `created_at`/`updated_at`, and everything is keyed by
-`wedding_id`.
+The couple manages everything through the authenticated dashboard at
+`/dashboard`: content editors, RSVP form configuration, response review
+with a `pending → confirmed / contacted` workflow, and the email system
+(guest confirmations, new-RSVP notifications, test sends). Everything is
+keyed by `wedding_id`, so a second wedding is a new row and seed — not a
+fork.
+
+## Documentation
+
+The full engineering documentation set lives in [`docs/`](docs/):
+[PROJECT_MASTER](docs/PROJECT_MASTER.md) (start here) ·
+[ARCHITECTURE](docs/ARCHITECTURE.md) · [DATABASE](docs/DATABASE.md) ·
+[DASHBOARD](docs/DASHBOARD.md) · [EMAIL_SYSTEM](docs/EMAIL_SYSTEM.md) ·
+[USER_GUIDE](docs/USER_GUIDE.md) (for the couple) ·
+[CHANGELOG](docs/CHANGELOG.md) · [CASE_STUDY](docs/CASE_STUDY.md)
