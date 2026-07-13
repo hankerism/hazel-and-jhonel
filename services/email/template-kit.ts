@@ -156,7 +156,7 @@ export function footer(options: {
     </tr>
     <tr>
       <td align="center" style="padding:0 40px 40px;">
-        <a href="${escapeHtml(websiteUrl)}" target="_blank" style="font-family:${sans};font-size:12px;color:${palette.goldDeep};text-decoration:underline;">${escapeHtml(websiteUrl.replace(/^https?:\/\//, ""))}</a>
+        <a href="${escapeHtml(websiteUrl)}" target="_blank" style="font-family:${sans};font-size:12px;color:${palette.goldDeep};text-decoration:underline;">Visit our wedding website</a>
       </td>
     </tr>
   </table>`;

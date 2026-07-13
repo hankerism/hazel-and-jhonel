@@ -55,10 +55,13 @@ export async function sendTestEmail(): Promise<TestEmailResult> {
     websiteUrl: await getSiteUrl(),
   });
 
+  // Unique subject per test: identical subjects make Gmail thread test
+  // emails into one conversation, which mixes old and new sends.
+  const stamp = new Date().toISOString().slice(11, 19);
   const result = await sendEmail({
     to: user.email,
     ...rendered,
-    subject: `[Test] ${rendered.subject}`,
+    subject: `[Test ${stamp}] ${rendered.subject}`,
   });
 
   return result.ok

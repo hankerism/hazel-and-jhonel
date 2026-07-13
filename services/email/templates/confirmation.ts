@@ -41,6 +41,13 @@ export function renderConfirmationEmail(props: ConfirmationProps): RenderedEmail
   const coupleNames = `${wedding.brideName} & ${wedding.groomName}`;
   const initials = `${wedding.brideName[0]} · ${wedding.groomName[0]}`;
   const longDate = formatLongDate(wedding.weddingDate);
+  // Email clients need absolute URLs — anchor a site-relative hero
+  // (e.g. an uploaded /images/… path) to the public site.
+  const heroUrl = wedding.heroImage
+    ? wedding.heroImage.startsWith("http")
+      ? wedding.heroImage
+      : `${websiteUrl}${wedding.heroImage}`
+    : null;
 
   const detailRows = [
     { label: "Guest", value: `${guest.firstName} ${guest.lastName}` },
@@ -74,7 +81,7 @@ export function renderConfirmationEmail(props: ConfirmationProps): RenderedEmail
     </tr>
   </table>
 
-  ${wedding.heroImage ? hero(wedding.heroImage, coupleNames) : ""}
+  ${heroUrl ? hero(heroUrl, coupleNames) : ""}
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>

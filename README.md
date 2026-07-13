@@ -36,6 +36,8 @@ Settings → API:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | required — public anon key (RLS enforced) |
 | `SUPABASE_SERVICE_ROLE_KEY` | optional — server-only, reserved for the future `/admin` dashboard |
 | `WEDDING_SLUG` | which `weddings.slug` this deployment serves (default `hazel-and-jhonel`) |
+| `NEXT_PUBLIC_SITE_URL` | public base URL used in emails and calendar links (production: the deployed URL; falls back to the request origin) |
+| `SMTP_*` | Gmail SMTP for confirmation emails — see `.env.example` (server-side only) |
 
 Set the same four variables in Vercel → Project → Settings → Environment
 Variables for deployments.

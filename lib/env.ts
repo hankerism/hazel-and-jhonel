@@ -9,6 +9,8 @@ export const env = {
   weddingSlug: process.env.WEDDING_SLUG ?? "hazel-and-jhonel",
   /** Public base URL of the deployed site (falls back to request origin). */
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+  /** Set automatically by Vercel: the project's production hostname. */
+  vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
   /** SMTP — server-side only, never reaches the client bundle. */
   smtp: {
     host: process.env.SMTP_HOST,
