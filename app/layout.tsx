@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { getWeddingContent } from "@/services/wedding-service";
 import { formatLongDate } from "@/lib/datetime";
+import { MicrosoftClarity } from "@/components/analytics/MicrosoftClarity";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -49,7 +50,10 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${cormorant.variable} ${inter.variable} antialiased`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <MicrosoftClarity />
+      </body>
     </html>
   );
 }
